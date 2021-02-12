@@ -1122,28 +1122,29 @@ static void setBcnRxParams_dyn (void) {
 extern int channel_is_allowed(u1_t channel);
 #endif // !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
 
+
 static void initJoinLoop (void) {
     initDefaultChannels();
     if( REG_IS_FIX() ) {
 #ifdef REG_FIX
         LMIC.refChnl = 0;
+        LMIC.txChnl = LMIC.fix.hoplist[LMIC.refChnl];
 #if !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
         for(int i = 0; i < REGION.numChBlocks * 8; i++)
         {
-          LMIC.txChnl = LMIC.fix.hoplist[LMIC.refChnl];
-          LMIC.refChnl = (LMIC.refChnl + 1) % (REGION.numChBlocks * 8);
           if(channel_is_allowed(LMIC.txChnl))
           {
             break;
           }
+          LMIC.refChnl = (LMIC.refChnl + 1) % (REGION.numChBlocks * 8);
+          LMIC.txChnl = LMIC.fix.hoplist[LMIC.refChnl];
         }
         debug_printf("A. Selecting channel %u\r\n", LMIC.txChnl);
-#else // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
-        LMIC.txChnl = LMIC.fix.hoplist[LMIC.refChnl];
-#endif // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+#endif // !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
         setDrJoin(DRCHG_SET, REGION.joinDr);
 #endif
     } else {
+        LMIC.txChnl = 0; // XXX - join should use nextTx!
 #if !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
         for(int i = 0; i < REGION.numChBlocks * 8; i++)
         {
@@ -1154,9 +1155,7 @@ static void initJoinLoop (void) {
           }
         }
         debug_printf("B. Selecting channel %u\r\n", LMIC.txChnl);
-#else // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
-        LMIC.txChnl = 0; // XXX - join should use nextTx!
-#endif // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+#endif // !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
         setDrJoin(DRCHG_SET, fastest125());
     }
     LMIC.txPowAdj = 0;
@@ -1180,20 +1179,20 @@ static ostime_t nextJoinState (void) {
         if( (LMIC.refChnl % REGION.numChBlocks) == 0 ) {
             // went through all channels blocks
             if( REGION.baseFreqFix ) {
-#if !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
-              for(int i = 0; i < REGION.numChBlocks * 8; i++)
-              {
-                LMIC.txChnl = i;
-                if(channel_is_allowed(LMIC.txChnl))
-                {
-                  break;
-                }
-              }
-              debug_printf("C. Selecting channel %u\r\n", LMIC.txChnl);
-#else // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+#if defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
                 // try fix-DR channel
                 LMIC.txChnl = (REGION.numChBlocks * 8) + (LMIC.refChnl / REGION.numChBlocks) - 1;
-#endif // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+#else // !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+                for(int i = 0; i <  8; i++)
+                {
+                  LMIC.txChnl = (REGION.numChBlocks * 8) + i;
+                  if(channel_is_allowed(LMIC.txChnl))
+                  {
+                    break;
+                  }
+                }
+                debug_printf("C. Selecting channel %u\r\n", LMIC.txChnl);
+#endif // !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
                 setDrJoin(DRCHG_SET, REGION.fixDr);
                 goto done;
             } else {
@@ -1205,7 +1204,9 @@ nextblock:
             }
         }
         setDrJoin(DRCHG_SET, REGION.joinDr);
-#if !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+#if defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+        LMIC.txChnl = LMIC.fix.hoplist[LMIC.refChnl];
+#else // !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
         for(int i = 0; i < REGION.numChBlocks * 8; i++)
         {
           LMIC.txChnl = LMIC.fix.hoplist[LMIC.refChnl];
@@ -1216,9 +1217,7 @@ nextblock:
           }
         }
         debug_printf("D. Selecting channel %u\r\n", LMIC.txChnl);
-#else // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
-        LMIC.txChnl = LMIC.fix.hoplist[LMIC.refChnl];
-#endif // defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
+#endif // !defined(EXCLUDE_JOEHACK_VALIDATE_CHANNELS)
 done:
         LMIC.opmode &= ~OP_NEXTCHNL;
         delay = rndDelay(32);
