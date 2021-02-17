@@ -1,6 +1,6 @@
 # lorawan_test
 
-Example LoRaWAN OTAA sketch with hack to speed up JOIN procedure
+Example LoRaWAN OTAA sketch with hacks to speed up JOIN procedure
 
-1. Overwrite {Arduino Library Path}/BasicMAC/src/lmic/lmic.c with lmic.c_hack
+1. Clone http://github.com/jtd-consulting/BasicMac.git to {Arduino Library Path}/BasicMAC
 2. Re-compile your sketch
